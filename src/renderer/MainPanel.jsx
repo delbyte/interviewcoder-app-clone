@@ -19,6 +19,14 @@ function MainPanel({ windowType = 'floating' }) {
   useEffect(() => {
     // Load initial data
     const initializeApp = async () => {
+      // First, always disable click-through during initialization
+      try {
+        await window.api.setClickThrough(false);
+        console.log('Click-through disabled during initialization');
+      } catch (error) {
+        console.error('Error disabling click-through during initialization:', error);
+      }
+
       const apiKeyResult = await window.api.getApiKey();
       if (apiKeyResult.success && apiKeyResult.apiKey) {
         setHasApiKey(true);
@@ -29,12 +37,8 @@ function MainPanel({ windowType = 'floating' }) {
           console.error('Error enabling click-through:', error);
         }
       } else {
-        try {
-          await window.api.setClickThrough(false);
-          console.log('Click-through disabled - waiting for API key');
-        } catch (error) {
-          console.error('Error disabling click-through:', error);
-        }
+        // Keep click-through disabled if no API key
+        console.log('Click-through remains disabled - waiting for API key');
       }
       loadScreenshots();
       loadSettings();
@@ -278,12 +282,16 @@ function MainPanel({ windowType = 'floating' }) {
   const handleSettingsLeave = async () => {
     console.log('Mouse left settings area, closing panel...');
     setSettingsPanelOpen(false);
-    // Re-enable click-through when settings panel closes
-    try {
-      await window.api.setClickThrough(true);
-      console.log('Click-through re-enabled after mouse left settings');
-    } catch (error) {
-      console.error('Error enabling click-through:', error);
+    // Only re-enable click-through when settings panel closes AND we have an API key
+    if (hasApiKey) {
+      try {
+        await window.api.setClickThrough(true);
+        console.log('Click-through re-enabled after mouse left settings');
+      } catch (error) {
+        console.error('Error enabling click-through:', error);
+      }
+    } else {
+      console.log('Click-through remains disabled - no API key available');
     }
   };
 
