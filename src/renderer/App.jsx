@@ -1,11 +1,12 @@
-import React from 'react'
+import React from 'react';
+import MainPanel from './MainPanel.jsx';
 
 function App() {
   return (
     <div className="App">
-      <h1>Hello Interview Coder Clone</h1>
+      <MainPanel />
     </div>
-  )
+  );
 }
 
-export default App
+export default App;
