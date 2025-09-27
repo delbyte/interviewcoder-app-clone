@@ -1,0 +1,44 @@
+{
+  "name": "interviewcoder-app-clone",
+  "version": "1.0.0",
+  "description": "A clone of the Interview Coder application using Electron and React",
+  "main": "src/main/main.js",
+  "homepage": ".",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:vite\" \"wait-on http://localhost:5173 && npm run dev:electron\"",
+    "dev:vite": "vite",
+    "dev:electron": "NODE_ENV=development electron .",
+    "build": "npm run build:vite",
+    "build:vite": "vite build",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/delbyte/interviewcoder-app-clone.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/delbyte/interviewcoder-app-clone/issues"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "axios": "^1.12.2",
+    "electron": "^38.1.2",
+    "electron-store": "^10.1.0",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "uuid": "^13.0.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^5.0.3",
+    "autoprefixer": "^10.4.21",
+    "concurrently": "^9.2.1",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.13",
+    "vite": "^7.1.7",
+    "wait-on": "^9.0.1"
+  }
+}
