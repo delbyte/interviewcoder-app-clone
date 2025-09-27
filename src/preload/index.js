@@ -8,6 +8,9 @@ contextBridge.exposeInMainWorld('api', {
   quitApp: () => ipcRenderer.invoke('quit-app'),
   rebootApp: () => ipcRenderer.invoke('reboot-app'),
 
+  // API Key
+  setApiKey: (key) => ipcRenderer.invoke('set-api-key', key),
+
   // Window management
   updateContentDimensions: (dimensions) => ipcRenderer.invoke('update-content-dimensions', dimensions),
   setIgnoreMouseEvents: (ignore, options) => ipcRenderer.invoke('set-ignore-mouse-events', ignore, options),

@@ -11,11 +11,27 @@ class ProcessingHelper {
     this.deps = deps;
     this.screenshotHelper = deps.getScreenshotHelper();
 
-    // Initialize Gemini AI
-    // Note: In production, get API key from environment or secure storage
-    const apiKey = process.env.GEMINI_API_KEY || 'your-api-key-here';
-    this.genAI = new GoogleGenerativeAI(apiKey);
-    this.model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    // Defer Gemini AI initialization until API key is provided
+    this.genAI = null;
+    this.model = null;
+  }
+
+  setApiKey(apiKey) {
+    if (!apiKey) {
+      this.genAI = null;
+      this.model = null;
+      console.warn('API key was cleared.');
+      return;
+    }
+    try {
+      this.genAI = new GoogleGenerativeAI(apiKey);
+      this.model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+      console.log('Gemini AI model initialized successfully with new API key.');
+    } catch (error) {
+      console.error('Failed to initialize Gemini AI with the provided API key:', error);
+      this.genAI = null;
+      this.model = null;
+    }
   }
 
   async compressImage(base64Data, attempt = 1) {
@@ -348,6 +364,12 @@ class ProcessingHelper {
   }
 
   async processScreenshotsHelper(screenshots, languageOverride = null) {
+    if (!this.model) {
+      return {
+        success: false,
+        error: "API key not set. Please enter your Gemini API key."
+      };
+    }
     try {
       const imageParts = screenshots.map((screenshot) => ({
         inlineData: {
@@ -381,6 +403,12 @@ Format your response as JSON with keys: analysis, approach, code, complexity`;
   }
 
   async processExtraScreenshotsHelper(screenshots) {
+    if (!this.model) {
+      return {
+        success: false,
+        error: "API key not set. Please enter your Gemini API key."
+      };
+    }
     try {
       const imageParts = screenshots.map((screenshot) => ({
         inlineData: {

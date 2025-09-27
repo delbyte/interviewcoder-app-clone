@@ -146,9 +146,7 @@ function initializeHelpers() {
     moveWindowVertical: (delta) => moveWindowVertical(delta),
     getMainWindow: () => mainWindow,
     getFloatingWindow: () => mainWindow,
-    getFloatingWindowVisible: () => isFloatingWindowVisible,
-    hideFloatingWindow: () => hideFloatingWindow(),
-    showFloatingWindow: () => showFloatingWindow(),
+    getImagePreview: (path) => screenshotHelper.getImagePreview(path),
   });
 }
 

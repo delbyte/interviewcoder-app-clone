@@ -275,16 +275,31 @@ function initializeIpcHandlers(deps) {
     }
   });
 
+  ipcMain.handle("set-api-key", async (_event, key) => {
+    try {
+      if (deps.processingHelper) {
+        deps.processingHelper.setApiKey(key);
+        return { success: true };
+      } else {
+        return { success: false, error: "Processing helper not available" };
+      }
+    } catch (error) {
+      console.error("Error setting API key:", error);
+      return { success: false, error: error.message };
+    }
+  });
+
   // Screenshot functionality
   ipcMain.handle("take-screenshot", async () => {
     try {
       console.log("take-screenshot handler called");
       if (deps.screenshotHelper) {
-        const result = await deps.screenshotHelper.takeScreenshot();
+        const screenshotPath = await deps.screenshotHelper.takeScreenshot();
+        const preview = await deps.getImagePreview(screenshotPath);
+        const result = { success: true, path: screenshotPath, preview: preview, id: Date.now() };
         
-        // Notify renderer about new screenshot
         const mainWindow = deps.getMainWindow();
-        if (mainWindow && result.success) {
+        if (mainWindow) {
           mainWindow.webContents.send('screenshot-taken', result);
         }
         

@@ -108,10 +108,15 @@ class ShortcutsHelper {
     try {
       const screenshotPath = await this.deps.takeScreenshot();
       console.log('Screenshot taken:', screenshotPath);
+      
+      // Generate preview and send structured object
+      const preview = await this.deps.getImagePreview(screenshotPath);
+      const result = { success: true, path: screenshotPath, preview: preview, id: Date.now() };
+
       // Notify renderer about new screenshot
       const mainWindow = this.deps.getMainWindow();
       if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('screenshot-taken', screenshotPath);
+        mainWindow.webContents.send('screenshot-taken', result);
       }
     } catch (error) {
       console.error('Screenshot failed:', error);
