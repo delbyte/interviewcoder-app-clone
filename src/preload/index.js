@@ -17,7 +17,12 @@ contextBridge.exposeInMainWorld('api', {
   hideMainPanel: () => ipcRenderer.invoke('hide-main-panel'),
 
   // Screenshots
+  takeScreenshot: () => ipcRenderer.invoke('take-screenshot'),
   getScreenshots: () => ipcRenderer.invoke('get-screenshots'),
+  
+  // Problem solving
+  solve: (screenshots, language) => ipcRenderer.invoke('solve', screenshots, language),
+  startOver: () => ipcRenderer.invoke('start-over'),
 
   // Permissions
   getPermissionStatus: () => ipcRenderer.invoke('get-permission-status'),
@@ -31,6 +36,11 @@ contextBridge.exposeInMainWorld('api', {
   // External links
   openSettingsPortal: () => ipcRenderer.invoke('open-settings-portal'),
   openSubscriptionPortal: () => ipcRenderer.invoke('open-subscription-portal'),
+
+  // Focus and click-through management
+  setClickThrough: (enabled) => ipcRenderer.invoke('set-click-through', enabled),
+  takeFocus: () => ipcRenderer.invoke('take-focus'),
+  releaseFocus: () => ipcRenderer.invoke('release-focus'),
 
   // Onboarding
   startOnboardingFlow: () => ipcRenderer.invoke('start-onboarding-flow'),
