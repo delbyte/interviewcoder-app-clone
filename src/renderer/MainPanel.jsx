@@ -56,23 +56,39 @@ function MainPanel({ windowType = 'floating' }) {
       setIsStreaming(true);
       setAiResponse(null);
     }));
-    removeListeners.push(window.api.on('solution-success', (data) => {
+    removeListeners.push(window.api.on('solution-success', (_event, data) => {
       setView('solutions');
       setIsStreaming(false);
-      if (data.thoughts && data.solution) {
+      if (data && data.analysis && data.code) {
+        console.log('Received valid solution data:', data);
         setAiResponse(data);
+      } else {
+        console.error('Solution data is invalid:', data);
+        alert('Failed to receive a valid solution from the AI.');
       }
     }));
-    removeListeners.push(window.api.on('initial-solution-error', (error) => {
+    removeListeners.push(window.api.on('initial-solution-error', (_event, error) => {
       setIsStreaming(false);
-      alert('Error: ' + error);
+      let errorMessage = "An unknown error occurred.";
+      if (typeof error === 'string') {
+        errorMessage = error;
+      } else if (error && typeof error === 'object' && error.message) {
+        errorMessage = error.message;
+      } else if (error) {
+        try {
+          errorMessage = JSON.stringify(error);
+        } catch {
+          // Fallback if stringify fails
+        }
+      }
+      alert('Error: ' + errorMessage);
     }));
     removeListeners.push(window.api.on('streaming-update', (text) => {
       setStreamText(prev => prev + text);
     }));
     removeListeners.push(window.api.on('streaming-end', () => {
       setIsStreaming(false);
-      parseStreamedResponse(streamText);
+      console.log('Streaming ended');
     }));
     removeListeners.push(window.api.on('shortcut-solve', () => {
       // This still has a stale closure issue, but it's not what the user reported.
@@ -90,26 +106,6 @@ function MainPanel({ windowType = 'floating' }) {
   useEffect(() => {
     window.__LANGUAGE__ = language;
   }, [language]);
-
-  const parseStreamedResponse = (text) => {
-    if (text && text.includes('# My Thoughts') && text.includes('# Solution')) {
-      const thoughtsMatch = text.match(/# My Thoughts\n([\s\S]*?)(?=# Solution|$)/);
-      const solutionMatch = text.match(/# Solution\n([\s\S]*?)$/);
-      
-      if (thoughtsMatch && solutionMatch) {
-        setAiResponse({
-          thoughts: thoughtsMatch[1].trim(),
-          solution: solutionMatch[1].trim(),
-          complexity: extractComplexity(text)
-        });
-      }
-    }
-  };
-
-  const extractComplexity = (text) => {
-    const complexityMatch = text.match(/# Complexity\n([\s\S]*?)(?=# |$)/);
-    return complexityMatch ? complexityMatch[1].trim() : null;
-  };
 
   const loadScreenshots = async () => {
     try {

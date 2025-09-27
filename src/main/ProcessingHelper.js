@@ -2,16 +2,12 @@ const fs = require('fs');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { app } = require('electron');
 
-const isDev = !app.isPackaged;
-
 class ProcessingHelper {
   constructor(deps) {
     this.currentProcessingAbortController = null;
     this.currentExtraProcessingAbortController = null;
     this.deps = deps;
     this.screenshotHelper = deps.getScreenshotHelper();
-
-    // Defer Gemini AI initialization until API key is provided
     this.genAI = null;
     this.model = null;
   }
@@ -83,7 +79,6 @@ class ProcessingHelper {
           }
         })()
       `);
-      console.log(`Image compression attempt ${attempt} completed using Canvas API`);
       return compressedBase64;
     } catch (error) {
       console.error(`Image compression failed on attempt ${attempt}:`, error);
@@ -165,8 +160,10 @@ class ProcessingHelper {
   async processScreenshots() {
     const mainWindow = this.deps.getMainWindow();
     if (!mainWindow) return;
+
     const view = this.deps.getView();
     console.log(`processScreenshots called with view: ${view}`);
+
     if (view === "queue") {
       mainWindow.webContents.send('initial-start');
       const screenshotQueue = this.screenshotHelper.getScreenshotQueue();
@@ -174,50 +171,49 @@ class ProcessingHelper {
         mainWindow.webContents.send('no-screenshots');
         return;
       }
+
       try {
         this.currentProcessingAbortController = new AbortController();
         const initialScreenshots = await Promise.all(screenshotQueue.map(async (path) => {
           const rawBase64 = fs.readFileSync(path).toString("base64");
-          return {
-            path,
-            preview: await this.screenshotHelper.getImagePreview(path),
-            data: rawBase64
-          };
+          return { path, preview: await this.screenshotHelper.getImagePreview(path), data: rawBase64 };
         }));
+
         const compressionResult = await this.compressScreenshotsUntilLimit(initialScreenshots);
         if (!compressionResult.success) {
-          console.log("Compression failed:", compressionResult.error);
           mainWindow.webContents.send('initial-solution-error', compressionResult.error);
           this.deps.setView("queue");
           return;
         }
-        const screenshots = compressionResult.screenshots;
-        console.log(`About to process screenshots with ${screenshots.length} screenshots`);
-        const result = await this.processScreenshotsHelper(screenshots);
-        console.log(`processScreenshotsHelper returned:`, result);
+
+        const result = await this.processScreenshotsHelper(compressionResult.screenshots);
         if (!result.success) {
-          console.log("Processing failed:", result.error);
           mainWindow.webContents.send('initial-solution-error', result.error);
           this.deps.setView("queue");
           return;
         }
-        let parsedData = result.data;
+
         if (typeof result.data === 'string') {
           try {
-            parsedData = JSON.parse(result.data);
+            let jsonString = result.data;
+            const match = jsonString.match(/```json\n([\s\S]*?)\n```/);
+            if (match && match[1]) {
+              jsonString = match[1];
+            }
+            const parsedData = JSON.parse(jsonString);
+            mainWindow.webContents.send('solution-success', parsedData);
+            this.deps.setView("solutions");
           } catch (parseError) {
-            console.error('Failed to parse solution JSON:', parseError);
-            mainWindow.webContents.send('initial-solution-error', 'Invalid response format from server');
+            console.error('Failed to parse solution JSON:', parseError, 'Raw data:', result.data);
+            mainWindow.webContents.send('initial-solution-error', 'Invalid response format from server.');
             this.deps.setView("queue");
-            return;
           }
+        } else {
+            mainWindow.webContents.send('solution-success', result.data);
+            this.deps.setView("solutions");
         }
-        console.log('Sending solution-success with parsed data:', parsedData);
-        mainWindow.webContents.send('solution-success', parsedData);
-        this.deps.setView("solutions");
       } catch (error) {
         mainWindow.webContents.send('initial-solution-error', error.message || "Server error. Please try again.");
-        console.error("Processing error:", error);
         this.deps.setView("queue");
       } finally {
         this.currentProcessingAbortController = null;
@@ -365,19 +361,10 @@ class ProcessingHelper {
 
   async processScreenshotsHelper(screenshots, languageOverride = null) {
     if (!this.model) {
-      return {
-        success: false,
-        error: "API key not set. Please enter your Gemini API key."
-      };
+      return { success: false, error: "API key not set. Please enter your Gemini API key." };
     }
     try {
-      const imageParts = screenshots.map((screenshot) => ({
-        inlineData: {
-          data: screenshot.data,
-          mimeType: 'image/jpeg'
-        }
-      }));
-
+      const imageParts = screenshots.map((screenshot) => ({ inlineData: { data: screenshot.data, mimeType: 'image/jpeg' } }));
       const language = languageOverride || await this.getLanguage();
       const prompt = `You are an expert coding interviewer. Analyze the screenshot(s) of a coding problem and provide a complete solution in ${language}. 
 
@@ -387,27 +374,21 @@ Please provide:
 3. Complete code solution
 4. Time/space complexity analysis
 
-Format your response as JSON with keys: analysis, approach, code, complexity`;
+Format your response as a single raw JSON object with keys: "analysis", "approach", "code", and "complexity". The value for "complexity" should be another JSON object with keys "time_complexity" and "space_complexity".
+IMPORTANT: Your entire response must be only the raw JSON object, without any Markdown formatting, code fences, or any other text outside the JSON structure.`;
 
       const result = await this.model.generateContent([prompt, ...imageParts]);
       const response = await result.response;
       const text = response.text();
-
       return { success: true, data: text };
     } catch (error) {
-      return {
-        success: false,
-        error: error.message || "Failed to process after multiple attempts. Please try again."
-      };
+      return { success: false, error: error.message || "Failed to process. Please try again." };
     }
   }
 
   async processExtraScreenshotsHelper(screenshots) {
     if (!this.model) {
-      return {
-        success: false,
-        error: "API key not set. Please enter your Gemini API key."
-      };
+        return { success: false, error: "API key not set. Please enter your Gemini API key." };
     }
     try {
       const imageParts = screenshots.map((screenshot) => ({

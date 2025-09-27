@@ -9,7 +9,6 @@ function SolutionDisplay({ isStreaming, streamText, aiResponse, language }) {
   useEffect(() => {
     if (isStreaming) {
       setDisplayedText(streamText);
-      // Try to parse the streaming text in real-time
       parseStreamingText(streamText);
     } else if (aiResponse) {
       setParsedResponse(aiResponse);
@@ -19,54 +18,32 @@ function SolutionDisplay({ isStreaming, streamText, aiResponse, language }) {
   const parseStreamingText = (text) => {
     if (!text) return;
 
-    // Try to extract sections from streaming text
     const sections = {
-      problem: '',
-      thoughts: '',
+      analysis: '',
+      approach: '',
       complexity: '',
-      solution: ''
+      code: ''
     };
 
-    // Look for common patterns in AI responses
-    const problemMatch = text.match(/(?:Problem|Given|Question):\s*(.*?)(?=\n\n|\nThoughts?|\nMy Thoughts?|\nSolution|\nComplexity|$)/s);
-    const thoughtsMatch = text.match(/(?:Thoughts?|My Thoughts?):\s*(.*?)(?=\n\n|\nSolution|\nComplexity|$)/s);
-    const complexityMatch = text.match(/(?:Complexity|Time Complexity|Space Complexity):\s*(.*?)(?=\n\n|\nSolution|$)/s);
-    const solutionMatch = text.match(/(?:Solution|Code|Implementation):\s*(.*?)$/s);
+    const analysisMatch = text.match(/(?:Problem analysis|Analysis):\s*(.*?)(?=\n\n|\nApproach|\nSolution Approach|\nCode|\nComplexity|$)/s);
+    const approachMatch = text.match(/(?:Solution approach|Approach):\s*(.*?)(?=\n\n|\nCode|\nImplementation|\nComplexity|$)/s);
+    const complexityMatch = text.match(/(?:Complexity|Time Complexity|Space Complexity):\s*(.*?)(?=\n\n|\nCode|\nImplementation|$)/s);
+    const codeMatch = text.match(/(?:Code|Implementation|Solution):\s*(.*?)$/s);
 
-    if (problemMatch) sections.problem = problemMatch[1].trim();
-    if (thoughtsMatch) sections.thoughts = thoughtsMatch[1].trim();
+    if (analysisMatch) sections.analysis = analysisMatch[1].trim();
+    if (approachMatch) sections.approach = approachMatch[1].trim();
     if (complexityMatch) sections.complexity = complexityMatch[1].trim();
-    if (solutionMatch) sections.solution = solutionMatch[1].trim();
+    if (codeMatch) sections.code = codeMatch[1].trim();
 
-    // Only update if we have substantial content
-    if (sections.thoughts || sections.solution) {
+    if (sections.approach || sections.code) {
       setParsedResponse(sections);
     }
   };
 
-  const formatCode = (code, lang = 'python') => {
-    if (!code) return '';
-    
-    // Simple syntax highlighting for demonstration
-    // In a real app, you'd use a proper syntax highlighter like Prism.js
-    return code
-      .split('\n')
-      .map((line, index) => (
-        `<span class="linenumber react-syntax-highlighter-line-number" style="display: inline-block; min-width: 2.25em; padding-right: 1em; text-align: right; user-select: none; color: rgb(98, 114, 164);">${index + 1}</span>${line}`
-      ))
-      .join('\n');
-  };
-
-  const renderThoughts = (thoughts) => {
-    if (!thoughts) return null;
-
-    // Split thoughts into bullet points if they contain numbered or bullet points
-    const lines = thoughts.split('\n').filter(line => line.trim());
-    const bulletPoints = lines.filter(line => 
-      line.match(/^\d+[.)]\s/) || 
-      line.match(/^[-•*]\s/) ||
-      line.includes(') ')
-    );
+  const renderApproach = (approach) => {
+    if (!approach) return null;
+    const lines = approach.split('\n').filter(line => line.trim());
+    const bulletPoints = lines.filter(line => line.match(/^\d+[.)]\s/) || line.match(/^[-•*]\s/));
 
     if (bulletPoints.length > 0) {
       return (
@@ -83,35 +60,28 @@ function SolutionDisplay({ isStreaming, streamText, aiResponse, language }) {
         </div>
       );
     }
-
-    return <div>{thoughts}</div>;
+    return <div>{approach}</div>;
   };
 
   const renderComplexity = (complexity) => {
     if (!complexity) return null;
-
+    if (typeof complexity === 'object') {
+        return (
+            <div className="space-y-1">
+                {complexity.time_complexity && <div className="flex items-start gap-2"><div className="w-1 h-1 rounded-full bg-blue-400/80 mt-2 shrink-0"></div><div><strong>Time:</strong> {complexity.time_complexity}</div></div>}
+                {complexity.space_complexity && <div className="flex items-start gap-2"><div className="w-1 h-1 rounded-full bg-blue-400/80 mt-2 shrink-0"></div><div><strong>Space:</strong> {complexity.space_complexity}</div></div>}
+            </div>
+        );
+    }
     const lines = complexity.split('\n').filter(line => line.trim());
-    
     return (
       <div className="space-y-1">
-        {lines.map((line, index) => {
-          const isTimeComplexity = line.toLowerCase().includes('time');
-          const isSpaceComplexity = line.toLowerCase().includes('space');
-          
-          return (
-            <div key={index} className="flex items-start gap-2">
-              <div className="w-1 h-1 rounded-full bg-blue-400/80 mt-2 shrink-0"></div>
-              <div>
-                {isTimeComplexity && <strong>Time:</strong>}
-                {isSpaceComplexity && <strong>Space:</strong>}
-                {!isTimeComplexity && !isSpaceComplexity && line}
-                {(isTimeComplexity || isSpaceComplexity) && 
-                  line.replace(/^.*?complexity:?\s*/i, '')
-                }
-              </div>
-            </div>
-          );
-        })}
+        {lines.map((line, index) => (
+          <div key={index} className="flex items-start gap-2">
+            <div className="w-1 h-1 rounded-full bg-blue-400/80 mt-2 shrink-0"></div>
+            <div>{line}</div>
+          </div>
+        ))}
       </div>
     );
   };
@@ -121,43 +91,28 @@ function SolutionDisplay({ isStreaming, streamText, aiResponse, language }) {
   }
 
   return (
-    <div className="w-fit text-sm text-black bg-black/60 rounded-lg relative mt-4">
+    <div className="w-fit text-sm text-black bg-black/60 rounded-lg relative mt-4 pointer-events-auto">
       <div className="rounded-lg overflow-hidden">
         <div className="px-4 py-3 space-y-4">
           <div className="flex gap-4">
-            {/* Left Column - Analysis and Thoughts */}
             <div className="w-[400px]">
               <div className="space-y-4">
-                
-                {/* Problem Analysis */}
-                {(parsedResponse?.problem || displayedText) && (
+                {(parsedResponse?.analysis || (isStreaming && displayedText)) && (
                   <div className="space-y-2 w-full">
-                    <h2 className="text-[13px] font-medium text-white tracking-wide">
-                      Analyzing Problem {!isStreaming && '(Ctrl + Arrow keys to scroll)'}
-                    </h2>
+                    <h2 className="text-[13px] font-medium text-white tracking-wide">Analyzing Problem</h2>
                     <div className="text-[13px] leading-[1.4] text-gray-100 w-full max-w-[2000px]">
-                      {parsedResponse?.problem || 
-                       (isStreaming ? displayedText.substring(0, 200) + '...' : displayedText.substring(0, 200) + '...')}
+                      {parsedResponse?.analysis || (isStreaming ? displayedText : '')}
                     </div>
                   </div>
                 )}
-
-                {/* My Thoughts */}
-                {(parsedResponse?.thoughts || (displayedText && displayedText.length > 100)) && (
+                {(parsedResponse?.approach || (isStreaming && displayedText)) && (
                   <div className="space-y-2 w-full">
-                    <div className="flex items-center justify-between">
-                      <h2 className="text-[13px] font-medium text-white tracking-wide">My Thoughts</h2>
-                    </div>
+                    <h2 className="text-[13px] font-medium text-white tracking-wide">My Thoughts</h2>
                     <div className="text-[13px] leading-[1.4] text-gray-100 w-full max-w-[2000px]">
-                      {parsedResponse?.thoughts ? 
-                        renderThoughts(parsedResponse.thoughts) :
-                        <div className="animate-pulse">Analyzing the problem structure and approach...</div>
-                      }
+                      {parsedResponse?.approach ? renderApproach(parsedResponse.approach) : <div className="animate-pulse">...</div>}
                     </div>
                   </div>
                 )}
-
-                {/* Complexity */}
                 {parsedResponse?.complexity && (
                   <div className="space-y-2 w-full">
                     <h2 className="text-[13px] font-medium text-white tracking-wide">Complexity</h2>
@@ -168,41 +123,19 @@ function SolutionDisplay({ isStreaming, streamText, aiResponse, language }) {
                 )}
               </div>
             </div>
-
-            {/* Right Column - Solution */}
             <div className="w-[800px]">
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-[13px] font-medium text-white tracking-wide">Solution</h2>
-                </div>
+                <h2 className="text-[13px] font-medium text-white tracking-wide">Solution</h2>
                 <div className="w-full relative">
-                  {parsedResponse?.solution || (isStreaming && displayedText) ? (
-                    <div>
-                      <SyntaxHighlighter
-                        language={language}
-                        style={oneDark}
-                        customStyle={{
-                          background: 'rgba(22, 27, 34, 0.5)',
-                          border: 'none',
-                          borderLeft: '3px solid rgb(96, 165, 250)',
-                          borderRadius: '0.3em',
-                          margin: 0,
-                          padding: '1rem',
-                          fontSize: '13px',
-                          lineHeight: '1.5'
-                        }}
-                        showLineNumbers={true}
-                        lineNumberStyle={{
-                          color: 'rgb(98, 114, 164)',
-                          fontSize: '11px',
-                          minWidth: '2.25em',
-                          paddingRight: '1em'
-                        }}
-                      >
-                        {parsedResponse?.solution || displayedText}
-                        {isStreaming && '\n// Generating solution...'}
-                      </SyntaxHighlighter>
-                    </div>
+                  {parsedResponse?.code || isStreaming ? (
+                    <SyntaxHighlighter
+                      language={language}
+                      style={oneDark}
+                      customStyle={{ background: 'rgba(22, 27, 34, 0.5)', border: 'none', borderRadius: '0.3em', margin: 0, padding: '1rem', fontSize: '13px' }}
+                      showLineNumbers={true}
+                    >
+                      {parsedResponse?.code || streamText}
+                    </SyntaxHighlighter>
                   ) : (
                     <div className="bg-gray-800/50 rounded p-4 text-white/70 text-center">
                       {isStreaming ? (
@@ -211,7 +144,7 @@ function SolutionDisplay({ isStreaming, streamText, aiResponse, language }) {
                           <span>Generating solution...</span>
                         </div>
                       ) : (
-                        'Click "Solve" to generate a solution'
+                        'Waiting for solution...'
                       )}
                     </div>
                   )}
