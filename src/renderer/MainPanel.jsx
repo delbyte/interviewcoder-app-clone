@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Settings from './Settings';
 import SolutionDisplay from './SolutionDisplay';
 
@@ -8,7 +8,6 @@ function MainPanel({ windowType = 'floating' }) {
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamText, setStreamText] = useState('');
   const [language, setLanguage] = useState('python');
-  const [showSettings, setShowSettings] = useState(false);
   const [aiResponse, setAiResponse] = useState(null);
   const [screenshotArray, setScreenshotArray] = useState([]); // Max 2 screenshots
 
@@ -18,9 +17,15 @@ function MainPanel({ windowType = 'floating' }) {
     loadSettings();
     
     // Ensure click-through mode is enabled on startup
-    if (window.api && window.api.setClickThrough) {
-      window.api.setClickThrough(true);
-    }
+    const initializeClickThrough = async () => {
+      try {
+        await window.api.setClickThrough(true);
+        console.log('Click-through initialized on startup');
+      } catch (error) {
+        console.error('Error initializing click-through:', error);
+      }
+    };
+    initializeClickThrough();
 
     // Set up IPC listeners
     const removeListeners = [];
@@ -213,18 +218,64 @@ function MainPanel({ windowType = 'floating' }) {
     }
   };
 
-  // Simple hover handlers
-  const handleSettingsEnter = () => {
-    setShowSettings(true);
-  };
-
-  const handleSettingsLeave = () => {
-    setShowSettings(false);
-  };
+  // Settings panel state - opens on hover, closes on outside click
+  const [settingsPanelOpen, setSettingsPanelOpen] = useState(false);
+  const settingsPanelRef = useRef(null);
 
   const handleQuit = () => {
     window.api.quitApp();
   };
+
+  // Handle settings hover to open panel
+  const handleSettingsHover = async () => {
+    setSettingsPanelOpen(true);
+    // Disable click-through when settings panel opens
+    try {
+      await window.api.setClickThrough(false);
+      console.log('Click-through disabled for settings panel');
+    } catch (error) {
+      console.error('Error disabling click-through:', error);
+    }
+  };
+
+  // Close settings panel only on clicks outside the settings area
+  const handleDocumentClick = async (event) => {
+    // Check if click is outside the settings panel
+    if (settingsPanelRef.current && !settingsPanelRef.current.contains(event.target)) {
+      console.log('Click detected outside settings panel, closing...');
+      setSettingsPanelOpen(false);
+      // Re-enable click-through when settings panel closes
+      try {
+        await window.api.setClickThrough(true);
+        console.log('Click-through re-enabled after settings closed');
+      } catch (error) {
+        console.error('Error enabling click-through:', error);
+      }
+    } else {
+      console.log('Click detected inside settings panel, keeping open');
+    }
+  };
+
+  // Add click listener to document and manage click-through behavior
+  useEffect(() => {
+    if (settingsPanelOpen) {
+      document.addEventListener('click', handleDocumentClick);
+    } else {
+      // Ensure click-through is enabled when panel is closed
+      const enableClickThrough = async () => {
+        try {
+          await window.api.setClickThrough(true);
+          console.log('Click-through ensured enabled when panel closed');
+        } catch (error) {
+          console.error('Error ensuring click-through enabled:', error);
+        }
+      };
+      enableClickThrough();
+    }
+    return () => {
+      document.removeEventListener('click', handleDocumentClick);
+    };
+  }, [settingsPanelOpen]);
 
   return (
     <div className="pointer-events-none w-full h-full">
@@ -288,40 +339,35 @@ function MainPanel({ windowType = 'floating' }) {
                   </div>
                 </div>
 
-                {/* Settings Icon (NO HOVER LOGIC) */}
-                <div className="flex items-center flex-shrink-0">
-                  <div className="w-4 h-4 flex items-center justify-center text-white/70">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
-                      <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path>
-                      <circle cx="12" cy="12" r="3"></circle>
-                    </svg>
+                {/* Settings - Opens on hover, closes on outside click */}
+                <div className="flex items-center flex-shrink-0 relative" ref={settingsPanelRef}>
+                  {/* Settings Icon */}
+                  <div className="inline-block">
+                    <div 
+                      className="w-4 h-4 flex items-center justify-center text-white/70 hover:text-white/90 transition-colors pointer-events-auto cursor-pointer"
+                      onMouseEnter={handleSettingsHover}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+                        <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path>
+                        <circle cx="12" cy="12" r="3"></circle>
+                      </svg>
+                    </div>
                   </div>
-                </div>
 
-                {/* Settings Hover Bounding Box - Square size of main bar height */}
-                <div 
-                  className="absolute right-0 top-0 w-10 h-full pointer-events-auto"
-                  onMouseEnter={handleSettingsBoundingBoxEnter}
-                />
+                  {/* Settings Panel - Positioned absolutely */}
+                  {settingsPanelOpen && (
+                    <div className="absolute top-0 right-0 z-50">
+                      <Settings 
+                        language={language}
+                        setLanguage={setLanguage}
+                        onClose={() => setSettingsPanelOpen(false)}
+                        onQuit={handleQuit}
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-
-            {/* Settings Panel */}
-            {showSettings && (
-              <div
-                onMouseLeave={handleSettingsPanelLeave}
-              >
-                <Settings 
-                  language={language}
-                  setLanguage={setLanguage}
-                  onClose={() => {
-                    setShowSettings(false);
-                    setHasEnteredSettingsPanel(false);
-                  }}
-                  onQuit={handleQuit}
-                />
-              </div>
-            )}
 
             {/* Screenshot Display */}
             {screenshotArray.length > 0 && (
