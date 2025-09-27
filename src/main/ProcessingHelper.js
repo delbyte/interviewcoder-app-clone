@@ -347,7 +347,7 @@ class ProcessingHelper {
     });
   }
 
-  async processScreenshotsHelper(screenshots) {
+  async processScreenshotsHelper(screenshots, languageOverride = null) {
     try {
       const imageParts = screenshots.map((screenshot) => ({
         inlineData: {
@@ -356,7 +356,7 @@ class ProcessingHelper {
         }
       }));
 
-      const language = await this.getLanguage();
+      const language = languageOverride || await this.getLanguage();
       const prompt = `You are an expert coding interviewer. Analyze the screenshot(s) of a coding problem and provide a complete solution in ${language}. 
 
 Please provide:

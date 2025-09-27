@@ -85,14 +85,17 @@ function createWindow() {
     },
   });
 
+  // Set window to be click-through by default
+  mainWindow.setIgnoreMouseEvents(true, { forward: true });
+
   if (isDev) {
-    mainWindow.loadURL('http://localhost:5173');
-    mainWindow.webContents.openDevTools();
+    mainWindow.loadURL('http://localhost:5174');
+    // mainWindow.webContents.openDevTools(); // Disabled for testing
   } else {
     mainWindow.loadFile(path.join(__dirname, '../../dist/index.html'));
   }
 
-  dpiManager.setupWindow(mainWindow, 'Floating Window', isDev ? { enableDevTools: true } : {});
+  dpiManager.setupWindow(mainWindow, 'Floating Window', { enableDevTools: false });
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -258,6 +261,9 @@ app.whenReady().then(() => {
     showMainPanel,
     hideMainPanel,
     broadcastOnboardingState,
+    screenshotHelper,
+    processingHelper,
+    clearQueues: () => screenshotHelper.clearQueues(),
   });
 });
 
