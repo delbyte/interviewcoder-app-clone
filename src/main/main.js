@@ -17,15 +17,18 @@ let screenshotHelper = null;
 let processingHelper = null;
 let shortcutsHelper = null;
 
+const INITIAL_X = 100;
+const INITIAL_Y = 100;
+
 // State variables
 let view = 'queue';
 let hasDebugged = false;
 let problemInfo = null;
-let isFloatingWindowVisible = false;
+let isFloatingWindowVisible = true;
 let isMainWindowVisible = false;
 let isMainPanelVisible = false;
-let currentX = 100;
-let currentY = 100;
+let currentX = INITIAL_X;
+let currentY = INITIAL_Y;
 let windowSize = { width: 800, height: 600 };
 
 function createMainWindow() {
@@ -72,6 +75,7 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: windowSize.width,
     height: windowSize.height,
+    show: true,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
@@ -85,8 +89,9 @@ function createWindow() {
     },
   });
 
-  // Set window to be click-through by default
-  mainWindow.setIgnoreMouseEvents(true, { forward: true });
+
+
+
 
   if (isDev) {
     mainWindow.loadURL('http://localhost:5174');
@@ -138,7 +143,12 @@ function initializeHelpers() {
     startOver: () => {
       screenshotHelper.clearQueues();
       view = 'queue';
-      if (mainWindow) mainWindow.webContents.send('start-over');
+      currentX = INITIAL_X;
+      currentY = INITIAL_Y;
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.setPosition(currentX, currentY);
+        mainWindow.webContents.send('start-over');
+      }
     },
     processScreenshots: () => processingHelper.processScreenshots(),
     moveWindowHorizontal: (delta) => moveWindowHorizontal(delta),
