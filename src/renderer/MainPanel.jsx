@@ -17,40 +17,33 @@ function MainPanel({ windowType = 'floating' }) {
   const [apiKeyInput, setApiKeyInput] = useState('');
 
   useEffect(() => {
-    // Load initial data
-    const initializeApp = async () => {
-      // First, always disable click-through during initialization
-      try {
-        await window.api.setClickThrough(false);
-        console.log('Click-through disabled during initialization');
-      } catch (error) {
-        console.error('Error disabling click-through during initialization:', error);
-      }
+    // Disable click-through on startup so user can enter API key
+    window.api.setClickThrough(false);
 
-      const apiKeyResult = await window.api.getApiKey();
-      if (apiKeyResult.success && apiKeyResult.apiKey) {
-        setHasApiKey(true);
-        try {
-          await window.api.setClickThrough(true);
-          console.log('Click-through enabled - API key available');
-        } catch (error) {
-          console.error('Error enabling click-through:', error);
-        }
-      } else {
-        // Keep click-through disabled if no API key
-        console.log('Click-through remains disabled - waiting for API key');
-      }
-      loadScreenshots();
-      loadSettings();
-    };
-
-    initializeApp();
+    loadScreenshots();
+    loadSettings();
 
     // Set up IPC listeners
     const removeListeners = [];
-    removeListeners.push(window.api.on('screenshot-taken', (newScreenshot) => {
-      console.log('Received new screenshot in renderer');
-      handleNewScreenshot(newScreenshot);
+    removeListeners.push(window.api.on('screenshot-taken', (_event, newScreenshot) => {
+      console.log('Received new screenshot in renderer:', newScreenshot);
+      if (!newScreenshot || !newScreenshot.preview) {
+        console.error('Invalid screenshot data received:', newScreenshot);
+        return;
+      }
+      setScreenshotArray(prev => {
+        const newArray = [...prev];
+        if (newArray.length >= 2) {
+          newArray.shift();
+        }
+        const newScreenshotObj = {
+          id: newScreenshot.id || Date.now(),
+          preview: newScreenshot.preview,
+          path: newScreenshot.path 
+        };
+        newArray.push(newScreenshotObj);
+        return newArray;
+      });
     }));
     removeListeners.push(window.api.on('start-over', () => {
       setScreenshots([]);
@@ -79,25 +72,19 @@ function MainPanel({ windowType = 'floating' }) {
     }));
     removeListeners.push(window.api.on('streaming-end', () => {
       setIsStreaming(false);
-      // Parse the streamed response if needed
       parseStreamedResponse(streamText);
     }));
     removeListeners.push(window.api.on('shortcut-solve', () => {
-      console.log('Shortcut-solve IPC message received');
-      console.log('hasApiKey:', hasApiKey, 'screenshotArray.length:', screenshotArray.length, 'isStreaming:', isStreaming);
-      // Handle Ctrl+Enter shortcut - same as clicking solve button
+      // This still has a stale closure issue, but it's not what the user reported.
       if (hasApiKey && screenshotArray.length > 0 && !isStreaming) {
-        console.log('Executing handleSolve() via shortcut');
         handleSolve();
-      } else {
-        console.log('Shortcut solve blocked - conditions not met');
       }
     }));
 
     return () => {
       removeListeners.forEach(remove => remove());
     };
-  }, [streamText, hasApiKey]);
+  }, []); // Empty dependency array is crucial for correct behavior
 
   // Update global language variable when language changes
   useEffect(() => {
@@ -105,7 +92,6 @@ function MainPanel({ windowType = 'floating' }) {
   }, [language]);
 
   const parseStreamedResponse = (text) => {
-    // Try to parse the response into thoughts and solution sections
     if (text && text.includes('# My Thoughts') && text.includes('# Solution')) {
       const thoughtsMatch = text.match(/# My Thoughts\n([\s\S]*?)(?=# Solution|$)/);
       const solutionMatch = text.match(/# Solution\n([\s\S]*?)$/);
@@ -118,30 +104,6 @@ function MainPanel({ windowType = 'floating' }) {
         });
       }
     }
-  };
-
-  // Handle new screenshot with cycling logic
-  const handleNewScreenshot = (newScreenshot) => {
-    if (!newScreenshot || !newScreenshot.preview) {
-      console.error('Invalid screenshot data received');
-      return;
-    }
-    setScreenshotArray(prev => {
-      const newArray = [...prev];
-      
-      // If we already have 2 screenshots, remove the first one
-      if (newArray.length >= 2) {
-        newArray.shift();
-      }
-      
-      // Add the new screenshot
-      newArray.push({
-        id: newScreenshot.id || Date.now(),
-        preview: newScreenshot.preview,
-      });
-      
-      return newArray;
-    });
   };
 
   const extractComplexity = (text) => {
@@ -173,16 +135,10 @@ function MainPanel({ windowType = 'floating' }) {
 
   const handleTakeScreenshot = async () => {
     try {
-      // Temporarily take focus for screenshot action
-      if (window.api.takeFocus) {
-        await window.api.takeFocus();
-      }
+      if (window.api.takeFocus) await window.api.takeFocus();
       await window.api.takeScreenshot();
-      // Release focus after action
       setTimeout(() => {
-        if (window.api.releaseFocus) {
-          window.api.releaseFocus();
-        }
+        if (window.api.releaseFocus) window.api.releaseFocus();
       }, 100);
     } catch (error) {
       console.error('Error:', error);
@@ -190,26 +146,18 @@ function MainPanel({ windowType = 'floating' }) {
   };
 
   const handleSolve = async () => {
-    if (screenshotArray.length === 0) {
-      return;
-    }
+    if (screenshotArray.length === 0) return;
     try {
-      // Temporarily take focus for solve action
-      if (window.api.takeFocus) {
-        await window.api.takeFocus();
-      }
+      if (window.api.takeFocus) await window.api.takeFocus();
       setIsStreaming(true);
       setStreamText('');
       setAiResponse(null);
       
-      console.log("Solving with screenshots:", screenshotArray, "language:", language);
-      await window.api.solve(screenshotArray, language);
+      const screenshotPaths = screenshotArray.map(s => s.path);
+      await window.api.solve(screenshotPaths, language);
       
-      // Release focus after action
       setTimeout(() => {
-        if (window.api.releaseFocus) {
-          window.api.releaseFocus();
-        }
+        if (window.api.releaseFocus) window.api.releaseFocus();
       }, 100);
     } catch (error) {
       console.error('Error:', error);
@@ -219,10 +167,7 @@ function MainPanel({ windowType = 'floating' }) {
 
   const handleStartOver = async () => {
     try {
-      // Temporarily take focus for start over action
-      if (window.api.takeFocus) {
-        await window.api.takeFocus();
-      }
+      if (window.api.takeFocus) await window.api.takeFocus();
       await window.api.startOver();
       setScreenshots([]);
       setView('queue');
@@ -230,18 +175,14 @@ function MainPanel({ windowType = 'floating' }) {
       setIsStreaming(false);
       setAiResponse(null);
       setScreenshotArray([]);
-      // Release focus after action
       setTimeout(() => {
-        if (window.api.releaseFocus) {
-          window.api.releaseFocus();
-        }
+        if (window.api.releaseFocus) window.api.releaseFocus();
       }, 100);
     } catch (error) {
       console.error('Error:', error);
     }
   };
 
-  // Settings panel state - opens on hover, closes on outside click
   const [settingsPanelOpen, setSettingsPanelOpen] = useState(false);
   const settingsPanelRef = useRef(null);
 
@@ -249,14 +190,14 @@ function MainPanel({ windowType = 'floating' }) {
     window.api.quitApp();
   };
 
-  // Handle API key submission
   const handleApiKeySubmit = async (e) => {
     if (e.key === 'Enter' && apiKeyInput.trim()) {
-      setApiKey(apiKeyInput.trim());
+      const key = apiKeyInput.trim();
+      await window.api.setApiKey(key);
+      setApiKey(key);
       setHasApiKey(true);
-      console.log('API key set for session');
+      console.log('API key set for session and sent to main process.');
       
-      // Enable click-through after API key is set
       try {
         await window.api.setClickThrough(true);
         console.log('Click-through enabled after API key submission');
@@ -266,45 +207,31 @@ function MainPanel({ windowType = 'floating' }) {
     }
   };
 
-  // Handle settings hover to open panel
   const handleSettingsHover = async () => {
     setSettingsPanelOpen(true);
-    // Disable click-through when settings panel opens
     try {
       await window.api.setClickThrough(false);
-      console.log('Click-through disabled for settings panel');
     } catch (error) {
       console.error('Error disabling click-through:', error);
     }
   };
 
-  // Handle mouse leave from settings area to close panel
   const handleSettingsLeave = async () => {
-    console.log('Mouse left settings area, closing panel...');
     setSettingsPanelOpen(false);
-    // Only re-enable click-through when settings panel closes AND we have an API key
     if (hasApiKey) {
       try {
         await window.api.setClickThrough(true);
-        console.log('Click-through re-enabled after mouse left settings');
       } catch (error) {
         console.error('Error enabling click-through:', error);
       }
-    } else {
-      console.log('Click-through remains disabled - no API key available');
     }
   };
 
-
-
-  // Ensure click-through is properly managed when panel state changes
   useEffect(() => {
     if (!settingsPanelOpen && hasApiKey) {
-      // Only enable click-through when panel is closed AND we have API key
       const enableClickThrough = async () => {
         try {
           await window.api.setClickThrough(true);
-          console.log('Click-through ensured enabled when panel closed and API key available');
         } catch (error) {
           console.error('Error ensuring click-through enabled:', error);
         }
@@ -347,7 +274,9 @@ function MainPanel({ windowType = 'floating' }) {
                       onClick={handleTakeScreenshot}
                     >
                       <span className="text-[11px] leading-none truncate">
-                        Take screenshot
+                        {screenshotArray.length === 0 ? 'Take first screenshot' : 
+                         screenshotArray.length === 1 ? 'Take second screenshot' : 
+                         'Reset first screenshot'}
                       </span>
                       <div className="flex gap-1">
                         <div className="bg-white/10 rounded-md px-1.5 py-1 text-[11px] leading-none text-white/70">Ctrl</div>

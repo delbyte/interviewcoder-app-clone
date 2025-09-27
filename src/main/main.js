@@ -95,7 +95,7 @@ function createWindow() {
     mainWindow.loadFile(path.join(__dirname, '../../dist/index.html'));
   }
 
-  dpiManager.setupWindow(mainWindow, 'Floating Window', { enableDevTools: false });
+  dpiManager.setupWindow(mainWindow, 'Floating Window', { enableDevTools: true });
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -135,7 +135,6 @@ function initializeHelpers() {
   });
   shortcutsHelper = new ShortcutsHelper({
     takeScreenshot: () => screenshotHelper.takeScreenshot(),
-    toggleWindow: () => toggleMainWindow(),
     startOver: () => {
       screenshotHelper.clearQueues();
       view = 'queue';
@@ -146,6 +145,9 @@ function initializeHelpers() {
     moveWindowVertical: (delta) => moveWindowVertical(delta),
     getMainWindow: () => mainWindow,
     getFloatingWindow: () => mainWindow,
+    getFloatingWindowVisible: () => isFloatingWindowVisible,
+    hideFloatingWindow: () => hideFloatingWindow(),
+    showFloatingWindow: () => showFloatingWindow(),
     getImagePreview: (path) => screenshotHelper.getImagePreview(path),
   });
 }
