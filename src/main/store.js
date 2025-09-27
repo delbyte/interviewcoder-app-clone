@@ -1,8 +1,8 @@
-const Store = require('electron-store');
+const Store = require('electron-store').default;
 
 const store = new Store({
   defaults: {
-    // Add default settings here
+    onboardingCompleted: false
   },
   encryptionKey: "your-encryption-key"
 });

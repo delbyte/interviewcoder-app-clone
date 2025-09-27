@@ -4,10 +4,9 @@ class ShortcutsHelper {
   constructor(deps) {
     this.deps = deps;
     this.shortcuts = new Map();
-    this.setupShortcuts();
   }
 
-  setupShortcuts() {
+  registerGlobalShortcuts() {
     // Clear any existing shortcuts
     globalShortcut.unregisterAll();
 

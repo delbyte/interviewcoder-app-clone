@@ -129,7 +129,6 @@ function initializeHelpers() {
     getExtraScreenshotQueue: () => screenshotHelper.getExtraScreenshotQueue(),
     takeScreenshot: () => screenshotHelper.takeScreenshot(),
     getImagePreview: (path) => screenshotHelper.getImagePreview(path),
-    processScreenshots: () => processingHelper.processScreenshots(),
   });
   shortcutsHelper = new ShortcutsHelper({
     takeScreenshot: () => screenshotHelper.takeScreenshot(),
@@ -243,6 +242,8 @@ function setWindowDimensions(width, height) {
 app.whenReady().then(() => {
   initializeHelpers();
   createWindow();
+  // Register shortcuts after window is created
+  shortcutsHelper.registerGlobalShortcuts();
   initializeIpcHandlers({
     getMainWindow: () => mainWindow,
     setWindowDimensions,
