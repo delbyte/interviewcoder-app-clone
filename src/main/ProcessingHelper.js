@@ -25,7 +25,7 @@ class ProcessingHelper {
     }
     try {
       this.genAI = new GoogleGenerativeAI(apiKey);
-      this.model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+      this.model = this.genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
       console.log('Gemini AI model initialized successfully with new API key.');
     } catch (error) {
       console.error('Failed to initialize Gemini AI with the provided API key:', error);

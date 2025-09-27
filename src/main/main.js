@@ -140,7 +140,7 @@ function initializeHelpers() {
       view = 'queue';
       if (mainWindow) mainWindow.webContents.send('start-over');
     },
-    solve: () => processingHelper.processScreenshots(),
+    processScreenshots: () => processingHelper.processScreenshots(),
     moveWindowHorizontal: (delta) => moveWindowHorizontal(delta),
     moveWindowVertical: (delta) => moveWindowVertical(delta),
     getMainWindow: () => mainWindow,
