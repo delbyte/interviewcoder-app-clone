@@ -10,28 +10,43 @@ function MainPanel({ windowType = 'floating' }) {
   const [language, setLanguage] = useState('python');
   const [aiResponse, setAiResponse] = useState(null);
   const [screenshotArray, setScreenshotArray] = useState([]); // Max 2 screenshots
+  
+  // API Key management
+  const [apiKey, setApiKey] = useState('');
+  const [hasApiKey, setHasApiKey] = useState(false);
+  const [apiKeyInput, setApiKeyInput] = useState('');
 
   useEffect(() => {
     // Load initial data
-    loadScreenshots();
-    loadSettings();
-    
-    // Ensure click-through mode is enabled on startup
-    const initializeClickThrough = async () => {
-      try {
-        await window.api.setClickThrough(true);
-        console.log('Click-through initialized on startup');
-      } catch (error) {
-        console.error('Error initializing click-through:', error);
+    const initializeApp = async () => {
+      const apiKeyResult = await window.api.getApiKey();
+      if (apiKeyResult.success && apiKeyResult.apiKey) {
+        setHasApiKey(true);
+        try {
+          await window.api.setClickThrough(true);
+          console.log('Click-through enabled - API key available');
+        } catch (error) {
+          console.error('Error enabling click-through:', error);
+        }
+      } else {
+        try {
+          await window.api.setClickThrough(false);
+          console.log('Click-through disabled - waiting for API key');
+        } catch (error) {
+          console.error('Error disabling click-through:', error);
+        }
       }
+      loadScreenshots();
+      loadSettings();
     };
-    initializeClickThrough();
+
+    initializeApp();
 
     // Set up IPC listeners
     const removeListeners = [];
-    removeListeners.push(window.api.on('screenshot-taken', (screenshotData) => {
-      loadScreenshots();
-      handleNewScreenshot(screenshotData);
+    removeListeners.push(window.api.on('screenshot-taken', (newScreenshot) => {
+      console.log('Received new screenshot in renderer');
+      handleNewScreenshot(newScreenshot);
     }));
     removeListeners.push(window.api.on('start-over', () => {
       setScreenshots([]);
@@ -63,11 +78,22 @@ function MainPanel({ windowType = 'floating' }) {
       // Parse the streamed response if needed
       parseStreamedResponse(streamText);
     }));
+    removeListeners.push(window.api.on('shortcut-solve', () => {
+      console.log('Shortcut-solve IPC message received');
+      console.log('hasApiKey:', hasApiKey, 'screenshotArray.length:', screenshotArray.length, 'isStreaming:', isStreaming);
+      // Handle Ctrl+Enter shortcut - same as clicking solve button
+      if (hasApiKey && screenshotArray.length > 0 && !isStreaming) {
+        console.log('Executing handleSolve() via shortcut');
+        handleSolve();
+      } else {
+        console.log('Shortcut solve blocked - conditions not met');
+      }
+    }));
 
     return () => {
       removeListeners.forEach(remove => remove());
     };
-  }, [streamText]);
+  }, [streamText, hasApiKey]);
 
   // Update global language variable when language changes
   useEffect(() => {
@@ -91,34 +117,27 @@ function MainPanel({ windowType = 'floating' }) {
   };
 
   // Handle new screenshot with cycling logic
-  const handleNewScreenshot = async (screenshotData) => {
-    try {
-      // Get the latest screenshot data
-      const result = await window.api.getScreenshots();
-      if (result.success && result.previews.length > 0) {
-        const newScreenshot = result.previews[result.previews.length - 1];
-        
-        setScreenshotArray(prev => {
-          const newArray = [...prev];
-          
-          // If we already have 2 screenshots, remove the first one
-          if (newArray.length >= 2) {
-            newArray.shift(); // Remove first screenshot
-          }
-          
-          // Add the new screenshot
-          newArray.push({
-            id: Date.now(),
-            preview: newScreenshot.preview,
-            path: newScreenshot.path
-          });
-          
-          return newArray;
-        });
-      }
-    } catch (error) {
-      console.error('Error handling new screenshot:', error);
+  const handleNewScreenshot = (newScreenshot) => {
+    if (!newScreenshot || !newScreenshot.preview) {
+      console.error('Invalid screenshot data received');
+      return;
     }
+    setScreenshotArray(prev => {
+      const newArray = [...prev];
+      
+      // If we already have 2 screenshots, remove the first one
+      if (newArray.length >= 2) {
+        newArray.shift();
+      }
+      
+      // Add the new screenshot
+      newArray.push({
+        id: newScreenshot.id || Date.now(),
+        preview: newScreenshot.preview,
+      });
+      
+      return newArray;
+    });
   };
 
   const extractComplexity = (text) => {
@@ -226,6 +245,23 @@ function MainPanel({ windowType = 'floating' }) {
     window.api.quitApp();
   };
 
+  // Handle API key submission
+  const handleApiKeySubmit = async (e) => {
+    if (e.key === 'Enter' && apiKeyInput.trim()) {
+      setApiKey(apiKeyInput.trim());
+      setHasApiKey(true);
+      console.log('API key set for session');
+      
+      // Enable click-through after API key is set
+      try {
+        await window.api.setClickThrough(true);
+        console.log('Click-through enabled after API key submission');
+      } catch (error) {
+        console.error('Error enabling click-through:', error);
+      }
+    }
+  };
+
   // Handle settings hover to open panel
   const handleSettingsHover = async () => {
     setSettingsPanelOpen(true);
@@ -238,44 +274,36 @@ function MainPanel({ windowType = 'floating' }) {
     }
   };
 
-  // Close settings panel only on clicks outside the settings area
-  const handleDocumentClick = async (event) => {
-    // Check if click is outside the settings panel
-    if (settingsPanelRef.current && !settingsPanelRef.current.contains(event.target)) {
-      console.log('Click detected outside settings panel, closing...');
-      setSettingsPanelOpen(false);
-      // Re-enable click-through when settings panel closes
-      try {
-        await window.api.setClickThrough(true);
-        console.log('Click-through re-enabled after settings closed');
-      } catch (error) {
-        console.error('Error enabling click-through:', error);
-      }
-    } else {
-      console.log('Click detected inside settings panel, keeping open');
+  // Handle mouse leave from settings area to close panel
+  const handleSettingsLeave = async () => {
+    console.log('Mouse left settings area, closing panel...');
+    setSettingsPanelOpen(false);
+    // Re-enable click-through when settings panel closes
+    try {
+      await window.api.setClickThrough(true);
+      console.log('Click-through re-enabled after mouse left settings');
+    } catch (error) {
+      console.error('Error enabling click-through:', error);
     }
   };
 
-  // Add click listener to document and manage click-through behavior
+
+
+  // Ensure click-through is properly managed when panel state changes
   useEffect(() => {
-    if (settingsPanelOpen) {
-      document.addEventListener('click', handleDocumentClick);
-    } else {
-      // Ensure click-through is enabled when panel is closed
+    if (!settingsPanelOpen && hasApiKey) {
+      // Only enable click-through when panel is closed AND we have API key
       const enableClickThrough = async () => {
         try {
           await window.api.setClickThrough(true);
-          console.log('Click-through ensured enabled when panel closed');
+          console.log('Click-through ensured enabled when panel closed and API key available');
         } catch (error) {
           console.error('Error ensuring click-through enabled:', error);
         }
       };
       enableClickThrough();
     }
-    return () => {
-      document.removeEventListener('click', handleDocumentClick);
-    };
-  }, [settingsPanelOpen]);
+  }, [settingsPanelOpen, hasApiKey]);
 
   return (
     <div className="pointer-events-none w-full h-full">
@@ -286,86 +314,109 @@ function MainPanel({ windowType = 'floating' }) {
             <div className="pt-2 w-fit z-[1000] relative">
               <div className="text-xs text-white/90 backdrop-blur-md bg-black/60 rounded-lg py-2 px-4 flex items-center justify-start gap-1 flex-nowrap">
                 
-                {/* Take Screenshot */}
-                <div 
-                  className="flex items-center gap-2 rounded px-2 py-1.5 pointer-events-auto cursor-pointer"
-                  onClick={handleTakeScreenshot}
-                >
-                  <span className="text-[11px] leading-none truncate">
-                    {screenshotArray.length === 0 ? 'Take first screenshot' : 
-                     screenshotArray.length === 1 ? 'Take second screenshot' : 
-                     'Reset first screenshot'}
-                  </span>
-                  <div className="flex gap-1">
-                    <div className="bg-white/10 rounded-md px-1.5 py-1 text-[11px] leading-none text-white/70">Ctrl</div>
-                    <div className="bg-white/10 rounded-md px-1.5 py-1 text-[11px] leading-none text-white/70">H</div>
-                  </div>
-                </div>
-
-                {/* Start Over */}
-                <div 
-                  className={`flex items-center gap-2 rounded px-2 py-1.5 ${screenshotArray.length > 0 ? 'pointer-events-auto cursor-pointer' : 'opacity-50'}`}
-                  onClick={screenshotArray.length > 0 ? handleStartOver : undefined}
-                >
-                  <span className="text-[11px] leading-none truncate">Start over</span>
-                  <div className="flex gap-1">
-                    <div className="bg-white/10 rounded-md px-1.5 py-1 text-[11px] leading-none text-white/70">Ctrl</div>
-                    <div className="bg-white/10 rounded-md px-1.5 py-1 text-[11px] leading-none text-white/70">G</div>
-                  </div>
-                </div>
-
-                {/* Solve */}
-                <div 
-                  className={`flex flex-col rounded px-2 py-1.5 ${screenshotArray.length > 0 && !isStreaming ? 'pointer-events-auto cursor-pointer' : 'opacity-50'}`}
-                  onClick={screenshotArray.length > 0 && !isStreaming ? handleSolve : undefined}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] leading-none">
-                      {isStreaming ? 'Solving...' : 'Solve'}
-                    </span>
-                    <div className="flex gap-1 ml-2">
-                      <div className="bg-white/10 rounded-md px-1.5 py-1 text-[11px] leading-none text-white/70">Ctrl</div>
+                {!hasApiKey ? (
+                  // API Key Input
+                  <div className="flex items-center gap-3 pointer-events-auto">
+                    <span className="text-[11px] leading-none text-white/70">Enter your Gemini API Key:</span>
+                    <input
+                      type="password"
+                      value={apiKeyInput}
+                      onChange={(e) => setApiKeyInput(e.target.value)}
+                      onKeyDown={handleApiKeySubmit}
+                      placeholder="API Key..."
+                      className="bg-white/10 border border-white/20 rounded-md px-3 py-1 text-[11px] text-white placeholder-white/50 focus:outline-none focus:border-white/40 min-w-[200px]"
+                      autoFocus
+                    />
+                    <div className="flex gap-1">
                       <div className="bg-white/10 rounded-md px-1.5 py-1 text-[11px] leading-none text-white/70">↵</div>
                     </div>
                   </div>
-                </div>
-
-                {/* Show/Hide */}
-                <div className="flex items-center gap-2 rounded px-2 py-1.5 pointer-events-auto cursor-pointer">
-                  <span className="text-[11px] leading-none">Show/Hide</span>
-                  <div className="flex gap-1">
-                    <div className="bg-white/10 rounded-md px-1.5 py-1 text-[11px] leading-none text-white/70">Ctrl</div>
-                    <div className="bg-white/10 rounded-md px-1.5 py-1 text-[11px] leading-none text-white/70">B</div>
-                  </div>
-                </div>
-
-                {/* Settings - Opens on hover, closes on outside click */}
-                <div className="flex items-center flex-shrink-0 relative" ref={settingsPanelRef}>
-                  {/* Settings Icon */}
-                  <div className="inline-block">
+                ) : (
+                  <>
+                    {/* Take Screenshot */}
                     <div 
-                      className="w-4 h-4 flex items-center justify-center text-white/70 hover:text-white/90 transition-colors pointer-events-auto cursor-pointer"
-                      onMouseEnter={handleSettingsHover}
+                      className="flex items-center gap-2 rounded px-2 py-1.5 pointer-events-auto cursor-pointer"
+                      onClick={handleTakeScreenshot}
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
-                        <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path>
-                        <circle cx="12" cy="12" r="3"></circle>
-                      </svg>
+                      <span className="text-[11px] leading-none truncate">
+                        Take screenshot
+                      </span>
+                      <div className="flex gap-1">
+                        <div className="bg-white/10 rounded-md px-1.5 py-1 text-[11px] leading-none text-white/70">Ctrl</div>
+                        <div className="bg-white/10 rounded-md px-1.5 py-1 text-[11px] leading-none text-white/70">H</div>
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Settings Panel - Positioned absolutely */}
-                  {settingsPanelOpen && (
-                    <div className="absolute top-0 right-0 z-50">
-                      <Settings 
-                        language={language}
-                        setLanguage={setLanguage}
-                        onClose={() => setSettingsPanelOpen(false)}
-                        onQuit={handleQuit}
-                      />
+                    {/* Start Over */}
+                    <div 
+                      className={`flex items-center gap-2 rounded px-2 py-1.5 ${screenshotArray.length > 0 ? 'pointer-events-auto cursor-pointer' : 'opacity-50'}`}
+                      onClick={screenshotArray.length > 0 ? handleStartOver : undefined}
+                    >
+                      <span className="text-[11px] leading-none truncate">Start over</span>
+                      <div className="flex gap-1">
+                        <div className="bg-white/10 rounded-md px-1.5 py-1 text-[11px] leading-none text-white/70">Ctrl</div>
+                        <div className="bg-white/10 rounded-md px-1.5 py-1 text-[11px] leading-none text-white/70">G</div>
+                      </div>
                     </div>
-                  )}
-                </div>
+
+                    {/* Solve */}
+                    <div 
+                      className={`flex flex-col rounded px-2 py-1.5 ${screenshotArray.length > 0 && !isStreaming ? 'pointer-events-auto cursor-pointer' : 'opacity-50'}`}
+                      onClick={screenshotArray.length > 0 && !isStreaming ? handleSolve : undefined}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] leading-none">
+                          {isStreaming ? 'Solving...' : 'Solve'}
+                        </span>
+                        <div className="flex gap-1 ml-2">
+                          <div className="bg-white/10 rounded-md px-1.5 py-1 text-[11px] leading-none text-white/70">Ctrl</div>
+                          <div className="bg-white/10 rounded-md px-1.5 py-1 text-[11px] leading-none text-white/70">↵</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Show/Hide */}
+                    <div className="flex items-center gap-2 rounded px-2 py-1.5 pointer-events-auto cursor-pointer">
+                      <span className="text-[11px] leading-none">Show/Hide</span>
+                      <div className="flex gap-1">
+                        <div className="bg-white/10 rounded-md px-1.5 py-1 text-[11px] leading-none text-white/70">Ctrl</div>
+                        <div className="bg-white/10 rounded-md px-1.5 py-1 text-[11px] leading-none text-white/70">B</div>
+                      </div>
+                    </div>
+
+                    {/* Settings - Opens on hover, closes on mouse leave */}
+                    <div 
+                      className="flex items-center flex-shrink-0 relative" 
+                      ref={settingsPanelRef}
+                      onMouseLeave={handleSettingsLeave}
+                    >
+                      {/* Settings Icon */}
+                      <div className="inline-block">
+                        <div 
+                          className="w-4 h-4 flex items-center justify-center text-white/70 hover:text-white/90 transition-colors pointer-events-auto cursor-pointer"
+                          onMouseEnter={handleSettingsHover}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+                            <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path>
+                            <circle cx="12" cy="12" r="3"></circle>
+                          </svg>
+                        </div>
+                      </div>
+
+                      {/* Settings Panel - Positioned absolutely */}
+                      {settingsPanelOpen && (
+                        <div className="absolute top-0 right-0 z-50">
+                          <Settings 
+                            language={language}
+                            setLanguage={setLanguage}
+                            onClose={() => setSettingsPanelOpen(false)}
+                            onQuit={handleQuit}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
