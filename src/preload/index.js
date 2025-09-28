@@ -24,7 +24,7 @@ contextBridge.exposeInMainWorld('api', {
   getScreenshots: () => ipcRenderer.invoke('get-screenshots'),
   
   // Problem solving
-  solve: (screenshots, language) => ipcRenderer.invoke('solve', screenshots, language),
+  solve: () => ipcRenderer.invoke('trigger-solve'),
   startOver: () => ipcRenderer.invoke('start-over'),
 
   // Permissions

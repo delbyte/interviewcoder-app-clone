@@ -314,47 +314,7 @@ function initializeIpcHandlers(deps) {
     }
   });
 
-  // Solve functionality
-  ipcMain.handle("solve", async (_event, screenshotPaths, language) => {
-    try {
-      console.log("solve handler called with screenshots:", screenshotPaths, "language:", language);
-      if (deps.processingHelper) {
-        // Get the main window to send events to
-        const mainWindow = deps.getMainWindow();
-        if (mainWindow) {
-          mainWindow.webContents.send('initial-start');
-          
-          // Convert screenshot paths to the format expected by ProcessingHelper
-          const screenshots = [];
-          for (const path of screenshotPaths) {
-            try {
-              const data = await deps.getImagePreview(path);
-              // Remove data:image/jpeg;base64, prefix if present
-              const cleanData = data.replace(/^data:image\/[a-z]+;base64,/, '');
-              screenshots.push({
-                data: cleanData,
-                path: path
-              });
-            } catch (error) {
-              console.error(`Error loading screenshot ${path}:`, error);
-            }
-          }
-          
-          console.log(`Processing ${screenshots.length} screenshots with language: ${language}`);
-          return await deps.processingHelper.processScreenshotsHelper(screenshots, language);
-        } else {
-          console.error("Main window not available for solve");
-          return { success: false, error: "Main window not available" };
-        }
-      } else {
-        console.error("Processing helper not available");
-        return { success: false, error: "Processing helper not available" };
-      }
-    } catch (error) {
-      console.error("Error solving:", error);
-      return { success: false, error: error.message };
-    }
-  });
+
 
   // Start over functionality
   ipcMain.handle("start-over", async () => {
@@ -387,13 +347,17 @@ function initializeIpcHandlers(deps) {
     }
   });
 
-  // Click-through management
   ipcMain.handle("set-click-through", (_event, enabled) => {
     try {
       const mainWindow = deps.getMainWindow();
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.setIgnoreMouseEvents(enabled, { forward: true });
         console.log(`Click-through ${enabled ? 'enabled' : 'disabled'}`);
+        if (enabled) {
+          mainWindow.blur();
+        } else {
+          mainWindow.focus();
+        }
       }
       return { success: true };
     } catch (error) {

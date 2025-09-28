@@ -138,9 +138,8 @@ function initializeHelpers() {
     takeScreenshot: () => screenshotHelper.takeScreenshot(),
     getImagePreview: (path) => screenshotHelper.getImagePreview(path),
   });
-  shortcutsHelper = new ShortcutsHelper({
-    takeScreenshot: () => screenshotHelper.takeScreenshot(),
-    startOver: () => {
+
+  const startOverFunc = () => {
       screenshotHelper.clearQueues();
       view = 'queue';
       currentX = INITIAL_X;
@@ -149,12 +148,16 @@ function initializeHelpers() {
         mainWindow.setPosition(currentX, currentY);
         mainWindow.webContents.send('start-over');
       }
-    },
+  };
+
+  shortcutsHelper = new ShortcutsHelper({
+    takeScreenshot: () => screenshotHelper.takeScreenshot(),
+    startOver: startOverFunc,
     processScreenshots: () => processingHelper.processScreenshots(),
+    getScreenshotQueue: () => screenshotHelper.getScreenshotQueue(),
     moveWindowHorizontal: (delta) => moveWindowHorizontal(delta),
     moveWindowVertical: (delta) => moveWindowVertical(delta),
     getMainWindow: () => mainWindow,
-    getFloatingWindow: () => mainWindow,
     getFloatingWindowVisible: () => isFloatingWindowVisible,
     hideFloatingWindow: () => hideFloatingWindow(),
     showFloatingWindow: () => showFloatingWindow(),
@@ -168,7 +171,6 @@ function showFloatingWindow() {
   }
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.show();
-    mainWindow.focus();
     isFloatingWindowVisible = true;
   }
 }

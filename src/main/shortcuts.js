@@ -138,17 +138,19 @@ class ShortcutsHelper {
 
   startOver() {
     console.log('Start over triggered');
-    this.deps.clearQueues();
-    this.deps.setView('queue');
-    const mainWindow = this.deps.getMainWindow();
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('start-over');
-    }
+    this.deps.startOver();
   }
 
   solve() {
     console.log('Solve triggered');
-    this.deps.processScreenshots();
+    if (this.deps.getScreenshotQueue && this.deps.getScreenshotQueue().length > 0) {
+        this.deps.processScreenshots();
+    } else {
+        const mainWindow = this.deps.getMainWindow();
+        if (mainWindow) {
+            mainWindow.webContents.send('no-screenshots');
+        }
+    }
   }
 
   moveWindow(deltaX, deltaY) {
