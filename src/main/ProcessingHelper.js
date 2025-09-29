@@ -164,9 +164,16 @@ class ProcessingHelper {
     const view = this.deps.getView();
     console.log(`processScreenshots called with view: ${view}`);
 
+    // Prevent concurrent processing
+    if (this.currentProcessingAbortController || this.currentExtraProcessingAbortController) {
+      console.warn('Processing already in progress, ignoring request');
+      return;
+    }
+
     if (view === "queue") {
       mainWindow.webContents.send('initial-start');
-      const screenshotQueue = this.screenshotHelper.getScreenshotQueue();
+      // Take a snapshot of the queue to avoid race conditions
+      const screenshotQueue = [...this.screenshotHelper.getScreenshotQueue()];
       if (screenshotQueue.length === 0) {
         mainWindow.webContents.send('no-screenshots');
         return;
@@ -220,7 +227,9 @@ class ProcessingHelper {
       }
     } else if (view === "solutions") {
       console.log(`Processing in solutions view - checking extra screenshots`);
-      const extraScreenshotQueue = this.screenshotHelper.getExtraScreenshotQueue();
+      // Take snapshots of both queues to avoid race conditions
+      const extraScreenshotQueue = [...this.screenshotHelper.getExtraScreenshotQueue()];
+      const mainScreenshotQueue = [...this.screenshotHelper.getScreenshotQueue()];
       console.log(`Extra screenshots found: ${extraScreenshotQueue.length}`);
       if (extraScreenshotQueue.length === 0) {
         console.log(`No extra screenshots, sending no-screenshots event`);
@@ -231,7 +240,7 @@ class ProcessingHelper {
       this.currentExtraProcessingAbortController = new AbortController();
       try {
         const initialScreenshots = await Promise.all([
-          ...this.screenshotHelper.getScreenshotQueue(),
+          ...mainScreenshotQueue,
           ...extraScreenshotQueue
         ].map(async (path) => {
           const rawBase64 = fs.readFileSync(path).toString("base64");

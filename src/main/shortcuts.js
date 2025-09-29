@@ -156,10 +156,10 @@ class ShortcutsHelper {
   moveWindow(deltaX, deltaY) {
     if (this.deps.moveWindowHorizontal && this.deps.moveWindowVertical) {
       if (deltaX !== 0) {
-        this.deps.moveWindowHorizontal(() => deltaX);
+        this.deps.moveWindowHorizontal(deltaX);
       }
       if (deltaY !== 0) {
-        this.deps.moveWindowVertical(() => deltaY);
+        this.deps.moveWindowVertical(deltaY);
       }
     }
   }

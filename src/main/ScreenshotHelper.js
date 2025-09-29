@@ -53,7 +53,7 @@ class ScreenshotHelper {
     console.log("Setting view in ScreenshotHelper:", view);
     console.log("Current queues - Main:", this.screenshotQueue, "Extra:", this.extraScreenshotQueue);
     this.view = view;
-    if (view === "queue") {
+    if (view === "queue" && this.extraScreenshotQueue) {
       this.clearExtraScreenshotQueue();
     }
   }

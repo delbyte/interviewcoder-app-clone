@@ -192,8 +192,27 @@ function toggleMainWindow() {
 
 function showPermissionWindow() {
   if (!permissionWindow || permissionWindow.isDestroyed()) {
-    createMainWindow();
-    permissionWindow = mainWindow;
+    permissionWindow = new BrowserWindow({
+      width: 400,
+      height: 300,
+      show: false,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        preload: path.join(__dirname, '../preload/index.js'),
+      },
+    });
+    
+    if (isDev) {
+      permissionWindow.loadURL('http://localhost:5174');
+    } else {
+      permissionWindow.loadFile(path.join(__dirname, '../../dist/index.html'));
+    }
+
+    permissionWindow.on('closed', () => {
+      permissionWindow = null;
+      isMainWindowVisible = false;
+    });
   }
   if (permissionWindow && !permissionWindow.isDestroyed()) {
     permissionWindow.show();
@@ -210,7 +229,27 @@ function hidePermissionWindow() {
 
 function showMainPanel() {
   if (!mainPanelWindow || mainPanelWindow.isDestroyed()) {
-    createMainPanelWindow();
+    mainPanelWindow = new BrowserWindow({
+      width: 600,
+      height: 400,
+      show: false,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        preload: path.join(__dirname, '../preload/index.js'),
+      },
+    });
+
+    if (isDev) {
+      mainPanelWindow.loadURL('http://localhost:5174');
+    } else {
+      mainPanelWindow.loadFile(path.join(__dirname, '../../dist/index.html'));
+    }
+
+    mainPanelWindow.on('closed', () => {
+      mainPanelWindow = null;
+      isMainPanelVisible = false;
+    });
   }
   if (mainPanelWindow && !mainPanelWindow.isDestroyed()) {
     mainPanelWindow.show();

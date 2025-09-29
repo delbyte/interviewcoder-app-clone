@@ -289,6 +289,23 @@ function initializeIpcHandlers(deps) {
     }
   });
 
+  // Processing functionality
+  ipcMain.handle("trigger-solve", async () => {
+    try {
+      console.log("trigger-solve handler called");
+      if (deps.processingHelper) {
+        await deps.processingHelper.processScreenshots();
+        return { success: true };
+      } else {
+        console.error("Processing helper not available");
+        return { success: false, error: "Processing helper not available" };
+      }
+    } catch (error) {
+      console.error("Error triggering solve:", error);
+      return { success: false, error: error.message };
+    }
+  });
+
   // Screenshot functionality
   ipcMain.handle("take-screenshot", async () => {
     try {
