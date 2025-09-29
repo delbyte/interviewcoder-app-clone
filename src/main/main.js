@@ -141,6 +141,7 @@ function initializeHelpers() {
 
   const startOverFunc = () => {
       screenshotHelper.clearQueues();
+      processingHelper.cancelOngoingRequests();
       view = 'queue';
       currentX = INITIAL_X;
       currentY = INITIAL_Y;

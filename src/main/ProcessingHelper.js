@@ -368,10 +368,14 @@ class ProcessingHelper {
     });
   }
 
-  async processScreenshotsHelper(screenshots, languageOverride = null) {
+  async processScreenshotsHelper(screenshots, languageOverride = null, retryCount = 0) {
     if (!this.model) {
       return { success: false, error: "API key not set. Please enter your Gemini API key." };
     }
+    
+    const maxRetries = 3;
+    const retryDelay = 2000; // 2 seconds between retries
+    
     try {
       const imageParts = screenshots.map((screenshot) => ({ inlineData: { data: screenshot.data, mimeType: 'image/jpeg' } }));
       const language = languageOverride || await this.getLanguage();
@@ -391,14 +395,39 @@ IMPORTANT: Your entire response must be only the raw JSON object, without any Ma
       const text = response.text();
       return { success: true, data: text };
     } catch (error) {
+      // Check if it's a 503 service unavailable error from Gemini
+      if ((error.message && error.message.includes('503')) || 
+          (error.status === 503) || 
+          (error.code === 503) ||
+          (error.message && error.message.toLowerCase().includes('service unavailable'))) {
+        
+        if (retryCount < maxRetries) {
+          console.log(`Gemini API returned 503, retrying in ${retryDelay}ms... (attempt ${retryCount + 1}/${maxRetries})`);
+          
+          // Wait before retrying
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+          
+          // Retry the request
+          return await this.processScreenshotsHelper(screenshots, languageOverride, retryCount + 1);
+        } else {
+          console.error(`Gemini API 503 error after ${maxRetries} retries`);
+          return { success: false, error: "Service is temporarily overloaded. Please try again in a moment." };
+        }
+      }
+      
+      // For non-503 errors, return as usual
       return { success: false, error: error.message || "Failed to process. Please try again." };
     }
   }
 
-  async processExtraScreenshotsHelper(screenshots) {
+  async processExtraScreenshotsHelper(screenshots, retryCount = 0) {
     if (!this.model) {
         return { success: false, error: "API key not set. Please enter your Gemini API key." };
     }
+    
+    const maxRetries = 3;
+    const retryDelay = 2000; // 2 seconds between retries
+    
     try {
       const imageParts = screenshots.map((screenshot) => ({
         inlineData: {
@@ -424,6 +453,27 @@ Format your response as JSON with keys: analysis, debugging, improved_code, reco
 
       return { success: true, data: text };
     } catch (error) {
+      // Check if it's a 503 service unavailable error from Gemini
+      if ((error.message && error.message.includes('503')) || 
+          (error.status === 503) || 
+          (error.code === 503) ||
+          (error.message && error.message.toLowerCase().includes('service unavailable'))) {
+        
+        if (retryCount < maxRetries) {
+          console.log(`Gemini API returned 503 during debug, retrying in ${retryDelay}ms... (attempt ${retryCount + 1}/${maxRetries})`);
+          
+          // Wait before retrying
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+          
+          // Retry the request
+          return await this.processExtraScreenshotsHelper(screenshots, retryCount + 1);
+        } else {
+          console.error(`Gemini API 503 error during debug after ${maxRetries} retries`);
+          return { success: false, error: "Service is temporarily overloaded. Please try again in a moment." };
+        }
+      }
+      
+      // For non-503 errors, return as usual
       return { success: false, error: error.message };
     }
   }

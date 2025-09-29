@@ -164,8 +164,18 @@ function SolutionDisplay({ isStreaming, streamText, aiResponse, language }) {
                   {parsedResponse?.code ? (
                     <SyntaxHighlighter
                       language={language}
-                      style={oneDark}
-                      customStyle={{ background: 'rgba(22, 27, 34, 0.5)', border: 'none', borderRadius: '0.3em', margin: 0, padding: '1rem', fontSize: '13px' }}
+                      style={{
+                        ...oneDark,
+                        'pre[class*="language-"]': {
+                          ...oneDark['pre[class*="language-"]'],
+                          background: 'transparent !important'
+                        },
+                        'code[class*="language-"]': {
+                          ...oneDark['code[class*="language-"]'],
+                          background: 'transparent !important'
+                        }
+                      }}
+                      customStyle={{ background: 'transparent !important', border: 'none', borderRadius: '0.3em', margin: 0, padding: '1rem', fontSize: '13px' }}
                       showLineNumbers={true}
                     >
                       {parsedResponse.code}
@@ -173,8 +183,18 @@ function SolutionDisplay({ isStreaming, streamText, aiResponse, language }) {
                   ) : isStreaming && streamText ? (
                     <SyntaxHighlighter
                       language={language}
-                      style={oneDark}
-                      customStyle={{ background: 'rgba(22, 27, 34, 0.5)', border: 'none', borderRadius: '0.3em', margin: 0, padding: '1rem', fontSize: '13px' }}
+                      style={{
+                        ...oneDark,
+                        'pre[class*="language-"]': {
+                          ...oneDark['pre[class*="language-"]'],
+                          background: 'transparent !important'
+                        },
+                        'code[class*="language-"]': {
+                          ...oneDark['code[class*="language-"]'],
+                          background: 'transparent !important'
+                        }
+                      }}
+                      customStyle={{ background: 'transparent !important', border: 'none', borderRadius: '0.3em', margin: 0, padding: '1rem', fontSize: '13px' }}
                       showLineNumbers={true}
                     >
                       {streamText}

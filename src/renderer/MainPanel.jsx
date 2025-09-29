@@ -48,10 +48,12 @@ function MainPanel() {
     };
 
     const handleStartOver = () => {
+      console.log('Renderer: Starting over, resetting all state');
       setView('queue');
       setStreamText('');
       setAiResponse(null);
       setScreenshotArray([]);
+      setIsStreaming(false);
     };
 
     const handleInitialStart = () => {
