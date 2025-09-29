@@ -97,55 +97,95 @@ function SolutionDisplay({ isStreaming, streamText, aiResponse, language }) {
           <div className="flex gap-4">
             <div className="w-[400px]">
               <div className="space-y-4">
-                {(parsedResponse?.analysis || (isStreaming && displayedText)) && (
-                  <div className="space-y-2 w-full">
-                    <h2 className="text-[13px] font-medium text-white tracking-wide">Analyzing Problem</h2>
+                {/* Analyzing Problem Section */}
+                <div className="space-y-2 w-full">
+                  <h2 className="text-[13px] font-medium text-white tracking-wide">Analyzing Problem (Ctrl + Arrow keys to scroll)</h2>
+                  {parsedResponse?.analysis ? (
                     <div className="text-[13px] leading-[1.4] text-gray-100 w-full max-w-[2000px]">
-                      {parsedResponse?.analysis || (isStreaming ? displayedText : '')}
+                      {parsedResponse.analysis}
                     </div>
-                  </div>
-                )}
-                {(parsedResponse?.approach || (isStreaming && displayedText)) && (
-                  <div className="space-y-2 w-full">
+                  ) : (
+                    <div className="h-4 bg-white/10 rounded animate-pulse w-full"></div>
+                  )}
+                </div>
+
+                {/* My Thoughts Section */}
+                <div className="space-y-2 w-full">
+                  <div className="flex items-center justify-between">
                     <h2 className="text-[13px] font-medium text-white tracking-wide">My Thoughts</h2>
-                    <div className="text-[13px] leading-[1.4] text-gray-100 w-full max-w-[2000px]">
-                      {parsedResponse?.approach ? renderApproach(parsedResponse.approach) : <div className="animate-pulse">...</div>}
-                    </div>
                   </div>
-                )}
-                {parsedResponse?.complexity && (
-                  <div className="space-y-2 w-full">
-                    <h2 className="text-[13px] font-medium text-white tracking-wide">Complexity</h2>
+                  {parsedResponse?.approach ? (
+                    <div className="text-[13px] leading-[1.4] text-gray-100 w-full max-w-[2000px]">
+                      {renderApproach(parsedResponse.approach)}
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="flex items-start gap-2">
+                        <div className="w-1 h-1 rounded-full bg-white/20 mt-2 shrink-0"></div>
+                        <div className="h-4 bg-white/10 rounded animate-pulse w-full"></div>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <div className="w-1 h-1 rounded-full bg-white/20 mt-2 shrink-0"></div>
+                        <div className="h-4 bg-white/10 rounded animate-pulse w-5/6"></div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Complexity Section */}
+                <div className="space-y-2 w-full">
+                  <h2 className="text-[13px] font-medium text-white tracking-wide">Complexity</h2>
+                  {parsedResponse?.complexity ? (
                     <div className="text-[13px] leading-[1.4] text-gray-100 w-full max-w-[2000px]">
                       {renderComplexity(parsedResponse.complexity)}
                     </div>
-                  </div>
-                )}
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="flex items-start gap-2">
+                        <div className="w-1 h-1 rounded-full bg-white/20 mt-2 shrink-0"></div>
+                        <div className="h-4 bg-white/10 rounded animate-pulse w-1/3"></div>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <div className="w-1 h-1 rounded-full bg-white/20 mt-2 shrink-0"></div>
+                        <div className="h-4 bg-white/10 rounded animate-pulse w-1/3"></div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
+            
             <div className="w-[800px]">
               <div className="space-y-2">
-                <h2 className="text-[13px] font-medium text-white tracking-wide">Solution</h2>
+                <div className="flex items-center justify-between">
+                  <h2 className="text-[13px] font-medium text-white tracking-wide">Solution</h2>
+                </div>
                 <div className="w-full relative">
-                  {parsedResponse?.code || isStreaming ? (
+                  {parsedResponse?.code ? (
                     <SyntaxHighlighter
                       language={language}
                       style={oneDark}
                       customStyle={{ background: 'rgba(22, 27, 34, 0.5)', border: 'none', borderRadius: '0.3em', margin: 0, padding: '1rem', fontSize: '13px' }}
                       showLineNumbers={true}
                     >
-                      {parsedResponse?.code || streamText}
+                      {parsedResponse.code}
+                    </SyntaxHighlighter>
+                  ) : isStreaming && streamText ? (
+                    <SyntaxHighlighter
+                      language={language}
+                      style={oneDark}
+                      customStyle={{ background: 'rgba(22, 27, 34, 0.5)', border: 'none', borderRadius: '0.3em', margin: 0, padding: '1rem', fontSize: '13px' }}
+                      showLineNumbers={true}
+                    >
+                      {streamText}
                     </SyntaxHighlighter>
                   ) : (
-                    <div className="bg-gray-800/50 rounded p-4 text-white/70 text-center">
-                      {isStreaming ? (
-                        <div className="flex items-center justify-center gap-2">
-                          <div className="animate-spin w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full"></div>
-                          <span>Generating solution...</span>
-                        </div>
-                      ) : (
-                        'Waiting for solution...'
-                      )}
+                    <div className="w-full bg-white/5 rounded-lg p-4">
+                      <div className="space-y-2">
+                        <div className="h-4 bg-white/10 rounded animate-pulse w-full"></div>
+                        <div className="h-4 bg-white/10 rounded animate-pulse w-5/6"></div>
+                        <div className="h-4 bg-white/10 rounded animate-pulse w-4/6"></div>
+                      </div>
                     </div>
                   )}
                 </div>
