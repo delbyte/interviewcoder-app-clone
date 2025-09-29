@@ -43,6 +43,30 @@ code {
   font-family: 'Consolas', 'Monaco', 'Andale Mono', 'Ubuntu Mono', monospace !important;
 }
 
+/* Screenshot container styles */
+.screenshot-container {
+  -webkit-text-size-adjust: 100%;
+  tab-size: 4;
+  font-family: Inter, system-ui, sans-serif;
+  font-feature-settings: normal;
+  font-variation-settings: normal;
+  -webkit-tap-highlight-color: transparent;
+  line-height: inherit;
+  pointer-events: none;
+  box-sizing: border-box;
+  border-width: 0;
+  border-style: solid;
+  border-color: #e5e7eb;
+  cursor: default !important;
+  scrollbar-width: none;
+  width: fit-content;
+}
+
+.screenshot-container img {
+  cursor: default !important;
+  pointer-events: none;
+}
+
 /* Animation utilities */
 @keyframes fadeIn {
   from { opacity: 0; }
